@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+#
+
+set -u -e
+exec 2>&1
+
+dir={{DIR}}
+bin="$dir/bin/{{NAME}}"
+
+cd "$dir"
+echo "=== Starting $bin"
+exec chpst -u stager -U stager "$bin" deploy watch

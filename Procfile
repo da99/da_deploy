@@ -1,0 +1,2 @@
+
+watch: bin/{{NAME}} watch
