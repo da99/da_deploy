@@ -18,27 +18,31 @@ when full_cmd == "generate release id"
 
 when full_cmd == "releases"
   # === {{CMD}} releases # Prints list of release in current working directory
-  DA_Deploy.releases.each { |dir|
+  DA_Deploy.releases(File.basename(Dir.current)).each { |dir|
     puts dir
   }
 
-when full_cmd == "service run"
-  # === {{CMD}} service run
-  DA_Deploy.service_run
-
 when full_cmd == "latest release"
   # === {{CMD}} latest release
-  puts DA_Deploy.latest_release
+  puts DA_Deploy.latest_release(File.basename(Dir.current))
 
 when full_cmd == "init"
   # === {{CMD}} init
   DA_Deploy.init
 
+when ARGV[0]? == "deploy" && ARGV[1]?
+  # === {{CMD}} deploy service_name
+  DA_Deploy.deploy(ARGV[1])
+
+when full_cmd == "service run"
+  # === {{CMD}} service run
+  DA_Deploy.service_run
+
 when "service inspect" == "#{ARGV[0]?} #{ARGV[1]?}" && ARGV[2]?
   # === {{CMD}} service inspect dir_service
-  service = DA_Deploy::Runit.new(ARGV[2])
-  puts service.dir
-  puts service.state
+  service = DA_Deploy::Runit.new(File.join DA_Deploy::SERVICE_DIR, ARGV[2])
+  puts service.name
+  puts service.service_link
   puts(service.pids.join("\n")) unless service.pids.empty?
 
 when "service down" == "#{ARGV[0]?} #{ARGV[1]?}" && ARGV[2]?

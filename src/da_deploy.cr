@@ -12,21 +12,60 @@ module DA_Deploy
   extend self
 
   def deploy
-    Dir.cd(DEPLOY_DIR)
-    Dir.glob("apps/*/").each { |dir|
-      next unless File.directory?(dir)
-      Dir.cd(dir) {
-        all = releases
-        latest = all.pop
-        next if !latest
-        all.each { |x| Runit.new(x).down! }
-        service = Runit.new(latest)
-        if !service.installed?
-          service.install!
-        end
-      }
+    Dir.glob("#{DEPLOY_DIR}/apps/*/").each { |dir|
+      deploy(dir)
     }
   end
+
+  def deploy(name : String)
+    app_dir     = File.join(DEPLOY_DIR, "apps", name)
+    service_dir = File.join(SERVICE_DIR, name)
+
+    Dir.cd(app_dir)
+    services = Dir.glob("#{app_dir}/*/sv").sort
+    sv_dir = services.pop
+
+    if !sv_dir
+      DA.exit_with_error!("No service found for: #{name}")
+    end
+
+    if File.exists?(service_dir)
+      sv = Runit.new(service_dir)
+      if sv.run?
+        `sudo sv down #{service_dir}`
+      end
+      sv.wait_pids
+      if sv.any_pids_up?
+        DA.exit_with_error!("!!! Pids still up for #{name}: #{sv.pids_up}")
+      end
+      DA.system!("sudo rm -f #{service_dir}")
+    end
+
+    if `realpath #{service_dir}` == `realpath #{sv_dir}`
+      DA.exit_with_error! "=== Already installed: #{service_dir}"
+    end
+
+    DA.system!("sudo ln -s #{sv_dir} #{service_dir}")
+
+    new_service = Runit.new(service_dir)
+    wait(10) { new_service.run?  }
+    puts Runit.status(service_dir)
+    if !new_service.run?
+      Process.exit 1
+    end
+  end
+
+  def wait(max : Int32)
+    counter = 0
+    result = false
+    while counter < max
+      result = yield
+      break if result
+      counter += 1
+      sleep 1
+    end
+    result
+  end # === def wait
 
   def generate_release_id
     `git show -s --format=%ct-%h`.strip
@@ -41,17 +80,17 @@ module DA_Deploy
     File.basename(dir)[/^\d{10}-[\da-zA-Z]{7}$/]?
   end
 
-  def self.releases
-    Dir.glob("./*/").sort.map { |dir|
+  def self.releases(name : String)
+    Dir.glob("#{DEPLOY_DIR}/apps/#{name}/*/").sort.map { |dir|
       next unless is_release?(dir)
-      File.expand_path(File.join(Dir.current, dir))
+      dir
     }.compact
-  end # === def releases
+  end
 
-  def self.latest_release
-    d = releases.last
+  def self.latest_release(name : String)
+    d = releases(name).last?
     if !d || !File.directory?(d)
-      DA.exit_with_error!("!!! No latest release found for #{Dir.current}")
+      DA.exit_with_error!("!!! No latest release found for #{name}")
     end
     d
   end # === def self.latest_release
@@ -77,8 +116,8 @@ module DA_Deploy
   # Push the bin/da_deploy binary to /tmp on the remote server
   def upload_binary_to_remote(server_name : String)
     DA.system!("rsync", "-v -e ssh #{Process.executable_path} #{server_name}:/home/stager/".split)
-    DA.orange! "=== {{Run command on remote}}: BOLD{{/home/stager/da_deploy init}}"
-    DA.system!("ssh #{server_name}")
+    # DA.orange! "=== {{Run command on remote}}: BOLD{{/home/stager/da_deploy init}}"
+    # DA.system!("ssh #{server_name}")
   end # === def init_server
 
 

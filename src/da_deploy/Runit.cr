@@ -2,61 +2,60 @@
 module DA_Deploy
   struct Runit
 
-    def self.state(dir)
-      `sv status #{dir}`.strip.split(':').first
+    # =============================================================================
+    # Class:
+    # =============================================================================
+
+    def self.status(service_link)
+      `sudo sv status #{service_link}`.strip
     end # === def self.state
 
-    getter dir : String
-    getter pids : Array(Int32) = [] of Int32
-    getter name : String
+    # =============================================================================
+    # Instance:
+    # =============================================================================
 
-    def initialize(raw_dir : String)
-      if !File.directory?(raw_dir)
-        DA.exit_with_error!("Not a directory: #{raw_dir.inspect}")
-      end
+    getter pids         : Array(Int32) = [] of Int32
+    getter name         : String
+    getter service_link : String
 
-      @dir = File.expand_path(raw_dir)
-      @name = File.basename(@dir)
+    def initialize(@service_link)
+      @name = File.basename(@service_link)
 
-      if self.class.state(@dir) == "run"
-        match = status.match(/\(pid (\d+)\)/)
+      status = self.class.status(@service_link)
+      is_running = status.split(':').first == "run"
 
-        if match
-          pid = match[1]
-          @pids = `pstree -A -p #{pid}`.scan(/\((\d+)\)/).map(&.[1].to_i32)
-        end
+      if is_running && status["(pid "]?
+        status.scan(/\(pid (\d+)\)/).map(&.[1].to_i32).each { |pid|
+          @pids.concat `pstree -A -p #{pid}`.scan(/\((\d+)\)/).map(&.[1].to_i32)
+        }
       end
 
     end # === def initialize(name : String)
 
     def installed?
-      File.exists?(File.join(SERVICE_DIR, name))
+      File.exists?(@service_link)
     end # === def installed?
 
     def install!
-      DA.system!("sudo ln -s #{dir} #{File.join(SERVICE_DIR, name)}")
+      DA.system!("sudo ln -s #{dir}/sv #{@service_link}")
     end # === def install!
-
-    def status
-      `sv status #{@dir}`.strip
-    end
-
-    def state
-      self.class.state(dir)
-    end # === def state
 
     {% for x in "run down exit".split %}
       def {{x.id}}?
-        status.split(':').first == {{x}}
+        status == {{x}}
       end
     {% end %}
 
+    def status
+      self.class.status(service_link).split(':').first
+    end # === def status
+
     def up!
       if !down?
-        DA.exit_with_error!("Service is not in \"down\" state: #{dir} -> #{status}")
+        DA.exit_with_error!("Service is not in \"down\" state: #{service_link} -> #{status}")
       end
 
-      DA.system!("sv up #{dir}")
+      DA.system!("sudo sv up #{service_link}")
       10.times do |i|
         if !run?
           sleep 1
@@ -66,50 +65,57 @@ module DA_Deploy
       end
 
       if !run?
-        DA.exit_with_error!("Service is not in \"up\" state: #{dir} -> #{status}")
+        DA.exit_with_error!("Service is not in \"up\" state: #{service_link} -> #{status}")
       end
-      Runit.new(dir).pids.each { |pid|
+      Runit.new(service_link).pids.each { |pid|
         puts pid
       }
     end
 
     def down!
       if !run?
-        DA.exit_with_error!("Not running: #{dir}")
+        DA.exit_with_error!("Not running: #{service_link}")
       end
       procs = pids
+
       STDERR.puts "PIDs: #{procs.join ' '}"
-      DA.system!("sv down #{dir}")
+
+      DA.system!("sudo sv down #{service_link}")
+      DA.system!("sudo sv down #{service_link}/log")
       10.times do |i|
-        if procs.any? { |id| Process.exists? id }
+        if any_pids_up?
           sleep 1
         else
           return true
         end
       end
-      Dir.cd(dir) {
+      Dir.cd(service_link) {
         File.write("sv.pids.txt", procs.join('\n'), 'a')
       }
-      STDERR.puts "!!! Processes for #{dir} still up: "
+      STDERR.puts "!!! Processes for #{service_link} still up: "
       procs.each { |x| STDERR.puts(x) if Process.exists?(x) }
       Process.exit 1
     end
 
+    def wait_pids
+      max = 10
+      counter = 0
+      while counter < 10
+        break unless any_pids_up?
+        counter += 1
+        sleep 1
+      end
+      max < 10
+    end # === def wait_pids
+
+    def pids_up
+      pids.select { |x| Process.exists?(x) }
+    end
+
+    def any_pids_up?
+      pids_up.empty?
+    end # === def any_pids_up?
+
   end # === struct Runit
 
-  struct State
-
-    getter raw : String
-    getter state : String
-    def initialize(@raw : String)
-      @state = @raw.split(':').first
-    end # === def initialize
-
-    {% for x in "run down fail".split %}
-      def {{x.id}}
-        @state == {{x}}
-      end
-    {% end %}
-
-  end # === struct State
 end # === module DA_Deploy
