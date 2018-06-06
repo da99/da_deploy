@@ -107,13 +107,24 @@ module DA_Deploy
     }
   end # === def deploy_watch
 
+  def upload_shell_config_to(server_name : String)
+    bin_path = Process.executable_path.not_nil!
+    app_dir = File.join(
+      File.dirname(File.dirname(bin_path))
+    )
+    Dir.cd(app_dir)
+    Dir.cd("config/stager/")
+    DA.system!("rsync -v -e ssh --relative --recursive .config/fish #{server_name}:/home/stager/")
+  end # === def upload_shell_config
+
   # Push the bin/da_deploy binary to /tmp on the remote server
   def upload_binary_to_remote(server_name : String)
-    DA.system!("rsync", "-v -e ssh #{Process.executable_path} #{server_name}:/home/stager/".split)
+    dir = File.dirname(File.dirname(Process.executable_path.not_nil!))
+    Dir.cd(dir)
+    DA.system!("rsync", "-v -e ssh --relative --recursive bin #{server_name}:/home/stager/".split)
     # DA.orange! "=== {{Run command on remote}}: BOLD{{/home/stager/da_deploy init}}"
     # DA.system!("ssh #{server_name}")
   end # === def init_server
-
 
   def upload_commit_to_remote(server_name : String)
     release_id = generate_release_id

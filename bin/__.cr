@@ -34,6 +34,10 @@ when ARGV[0]? == "deploy" && ARGV[1]?
   # === {{CMD}} deploy service_name
   DA_Deploy.deploy(ARGV[1])
 
+when full_cmd["upload shell config to "]?
+  # === {{CMD}} upload shell config
+  DA_Deploy.upload_shell_config_to(ARGV.last)
+
 when full_cmd == "service run"
   # === {{CMD}} service run
   DA_Deploy.service_run
