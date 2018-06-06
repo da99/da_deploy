@@ -1,6 +1,0 @@
-
-run da_dev bin compile
-run bin/da_deploy generate id
-# run bin/da_deploy init
-# run tree /tmp/deploy
-run echo done

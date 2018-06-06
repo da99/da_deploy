@@ -20,6 +20,21 @@ when full_cmd == "init"
   # === {{CMD}} init
   DA_Deploy.init
 
+when "service inspect" == "#{ARGV[0]?} #{ARGV[1]?}" && ARGV[2]?
+  # === {{CMD}} service inspect dir_service
+  service = DA_Deploy::Runit.new(ARGV[2])
+  puts service.dir
+  puts service.state
+  puts(service.pids.join("\n")) unless service.pids.empty?
+
+when "service down" == "#{ARGV[0]?} #{ARGV[1]?}" && ARGV[2]?
+  # === {{CMD}} service down dir_service
+  DA_Deploy::Runit.new(ARGV[2]).down!
+
+when "service up" == "#{ARGV[0]?} #{ARGV[1]?}" && ARGV[2]?
+  # === {{CMD}} service up dir_service
+  DA_Deploy::Runit.new(ARGV[2]).up!
+
 when full_cmd == "watch"
   # === {{CMD}} watch
   DA_Deploy.watch
