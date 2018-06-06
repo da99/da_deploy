@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+#
+
+set -u -e
+dir=/var/log
+sv_name=da_deploy
+
+mkdir -p         $dir/$sv_name
+exec svlogd -ttt $dir/$sv_name

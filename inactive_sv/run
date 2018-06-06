@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+#
+
+set -u -e
+exec 2>&1
+
+cd ../
+
+bin="bin/da_deploy"
+echo "=== Starting @ $(date): $bin service run"
+exec chpst -u stager -U stager "$bin" service run

@@ -11,11 +11,52 @@ module DA_Deploy
 
   extend self
 
-  def generate_id
+  def deploy
+    Dir.cd(DEPLOY_DIR)
+    Dir.glob("apps/*/").each { |dir|
+      next unless File.directory?(dir)
+      Dir.cd(dir) {
+        all = releases
+        latest = all.pop
+        next if !latest
+        all.each { |x| Runit.new(x).down! }
+        service = Runit.new(latest)
+        if !service.installed?
+          service.install!
+        end
+      }
+    }
+  end
+
+  def generate_release_id
     `git show -s --format=%ct-%h`.strip
   end
 
-  def watch
+  def service_name?(name : String, dir : String)
+    dir_name = File.dirname(dir)
+    dir_name =~ /^#{name}\.\d{10}-[\da-zA-Z]{7}$/
+  end # === def service_name?
+
+  def self.is_release?(dir)
+    File.basename(dir)[/^\d{10}-[\da-zA-Z]{7}$/]?
+  end
+
+  def self.releases
+    Dir.glob("./*/").sort.map { |dir|
+      next unless is_release?(dir)
+      File.expand_path(File.join(Dir.current, dir))
+    }.compact
+  end # === def releases
+
+  def self.latest_release
+    d = releases.last
+    if !d || !File.directory?(d)
+      DA.exit_with_error!("!!! No latest release found for #{Dir.current}")
+    end
+    d
+  end # === def self.latest_release
+
+  def service_run
     counter = 0
     interval = 5
     STDERR.puts "=== Started watching at: #{Time.now.to_s}"
@@ -33,17 +74,31 @@ module DA_Deploy
     }
   end # === def deploy_watch
 
-  # Push the bin/da binary to /tmp on the remote server
-  def upload_to_remote(server_name : String)
+  # Push the bin/da_deploy binary to /tmp on the remote server
+  def upload_binary_to_remote(server_name : String)
     DA.system!("rsync", "-v -e ssh #{Process.executable_path} #{server_name}:/home/stager/".split)
     DA.orange! "=== {{Run command on remote}}: BOLD{{/home/stager/da_deploy init}}"
     DA.system!("ssh #{server_name}")
   end # === def init_server
 
 
-  def create_services(folder : String)
-    puts "=== Creating services for: #{folder}"
-  end
+  def upload_commit_to_remote(server_name : String)
+    release_id = generate_release_id
+    name = File.basename(Dir.current)
+    path = Dir.current
+    FileUtils.mkdir_p "tmp/#{name}"
+    Dir.cd("tmp/#{name}") {
+      DA.system!("git clone --depth 1 file://#{path} #{release_id}")
+    }
+    remote_dir = "/deploy/apps/#{name}/#{release_id}"
+    system("ssh #{server_name} test -d #{remote_dir}")
+    if DA.success?($?)
+      DA.exit_with_error!("!!! Already exists on server: #{remote_dir}")
+    end
+    Dir.cd("tmp") {
+      DA.system!("rsync -v -e ssh --relative --recursive #{name}/#{release_id} #{server_name}:/deploy/apps/")
+    }
+  end # === def upload_commit_to_remote
 
   # Run this on the remote server you want to setup.
   def init

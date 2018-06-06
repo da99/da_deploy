@@ -8,13 +8,16 @@ module DA_Deploy
 
     getter dir : String
     getter pids : Array(Int32) = [] of Int32
+    getter name : String
 
     def initialize(raw_dir : String)
       if !File.directory?(raw_dir)
         DA.exit_with_error!("Not a directory: #{raw_dir.inspect}")
       end
 
-      @dir = raw_dir
+      @dir = File.expand_path(raw_dir)
+      @name = File.basename(@dir)
+
       if self.class.state(@dir) == "run"
         match = status.match(/\(pid (\d+)\)/)
 
@@ -25,6 +28,14 @@ module DA_Deploy
       end
 
     end # === def initialize(name : String)
+
+    def installed?
+      File.exists?(File.join(SERVICE_DIR, name))
+    end # === def installed?
+
+    def install!
+      DA.system!("sudo ln -s #{dir} #{File.join(SERVICE_DIR, name)}")
+    end # === def install!
 
     def status
       `sv status #{@dir}`.strip
@@ -76,6 +87,9 @@ module DA_Deploy
           return true
         end
       end
+      Dir.cd(dir) {
+        File.write("sv.pids.txt", procs.join('\n'), 'a')
+      }
       STDERR.puts "!!! Processes for #{dir} still up: "
       procs.each { |x| STDERR.puts(x) if Process.exists?(x) }
       Process.exit 1
