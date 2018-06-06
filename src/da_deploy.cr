@@ -18,42 +18,36 @@ module DA_Deploy
   end
 
   def deploy(name : String)
-    app_dir     = File.join(DEPLOY_DIR, "apps", name)
-    service_dir = File.join(SERVICE_DIR, name)
+    sv = Runit.new(name)
 
-    Dir.cd(app_dir)
-    services = Dir.glob("#{app_dir}/*/sv").sort
-    sv_dir = services.pop
+    Dir.cd(sv.app_dir)
 
-    if !sv_dir
-      DA.exit_with_error!("No service found for: #{name}")
+    if !sv.latest_release
+      DA.exit_with_error!("No service found for: #{sv.name}")
     end
 
-    if File.exists?(service_dir)
-      sv = Runit.new(service_dir)
-      if sv.run?
-        `sudo sv down #{service_dir}`
-      end
+    if sv.latest_linked?
+      DA.exit_with_error! "=== Already installed: #{sv.service_link} -> #{`realpath #{sv.service_link}`}"
+    end
+
+    if sv.linked?
+      sv.down! if sv.run?
       sv.wait_pids
       if sv.any_pids_up?
         DA.exit_with_error!("!!! Pids still up for #{name}: #{sv.pids_up}")
       end
-      DA.system!("sudo rm -f #{service_dir}")
+      DA.system!("sudo rm -f #{sv.service_link}")
     end
 
-    if `realpath #{service_dir}` == `realpath #{sv_dir}`
-      DA.exit_with_error! "=== Already installed: #{service_dir}"
-    end
+    sv.link!
 
-    DA.system!("sudo ln -s #{sv_dir} #{service_dir}")
-
-    new_service = Runit.new(service_dir)
+    new_service = Runit.new(name)
     wait(10) { new_service.run?  }
-    puts Runit.status(service_dir)
+    puts Runit.status(new_service.service_link)
     if !new_service.run?
       Process.exit 1
     end
-  end
+  end # === def deploy
 
   def wait(max : Int32)
     counter = 0

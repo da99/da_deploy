@@ -40,10 +40,13 @@ when full_cmd == "service run"
 
 when "service inspect" == "#{ARGV[0]?} #{ARGV[1]?}" && ARGV[2]?
   # === {{CMD}} service inspect dir_service
-  service = DA_Deploy::Runit.new(File.join DA_Deploy::SERVICE_DIR, ARGV[2])
-  puts service.name
-  puts service.service_link
-  puts(service.pids.join("\n")) unless service.pids.empty?
+  service = DA_Deploy::Runit.new(ARGV[2])
+  {% for x in "name service_link latest_linked? app_dir pids latest_release".split %}
+    puts "{{x.id}}:  #{service.{{x.id}}.inspect}"
+  {% end %}
+  if service.latest_release
+    puts "sv_dir:  #{service.sv_dir}"
+  end
 
 when "service down" == "#{ARGV[0]?} #{ARGV[1]?}" && ARGV[2]?
   # === {{CMD}} service down dir_service

@@ -17,9 +17,12 @@ module DA_Deploy
     getter pids         : Array(Int32) = [] of Int32
     getter name         : String
     getter service_link : String
+    getter app_dir      : String
 
-    def initialize(@service_link)
-      @name = File.basename(@service_link)
+    def initialize(@name)
+      @service_link = File.join(SERVICE_DIR, name)
+      @name         = File.basename(@service_link)
+      @app_dir      = File.join(DEPLOY_DIR, "apps", name)
 
       status = self.class.status(@service_link)
       is_running = status.split(':').first == "run"
@@ -32,12 +35,36 @@ module DA_Deploy
 
     end # === def initialize(name : String)
 
-    def installed?
-      File.exists?(@service_link)
-    end # === def installed?
+    def sv_dir
+      dir = latest_release.not_nil!
+      File.join(dir, "sv")
+    end # === def sv_dir
 
-    def install!
-      DA.system!("sudo ln -s #{dir}/sv #{@service_link}")
+    def latest_release
+      releases.last?
+    end
+
+    def releases
+      Dir.glob( File.join("#{app_dir}/*/sv/") ).sort.map { |x|
+        File.dirname(File.dirname(x))
+      }
+    end
+
+    def linked?
+      File.exists?(@service_link)
+    end
+
+    def latest_linked?
+      dir = latest_release
+      if dir
+        `realpath #{sv_dir}` == `realpath #{service_link}`
+      else
+        false
+      end
+    end
+
+    def link!
+      DA.system!("sudo ln -s #{sv_dir} #{service_link}")
     end # === def install!
 
     {% for x in "run down exit".split %}
@@ -81,20 +108,6 @@ module DA_Deploy
       STDERR.puts "PIDs: #{procs.join ' '}"
 
       DA.system!("sudo sv down #{service_link}")
-      DA.system!("sudo sv down #{service_link}/log")
-      10.times do |i|
-        if any_pids_up?
-          sleep 1
-        else
-          return true
-        end
-      end
-      Dir.cd(service_link) {
-        File.write("sv.pids.txt", procs.join('\n'), 'a')
-      }
-      STDERR.puts "!!! Processes for #{service_link} still up: "
-      procs.each { |x| STDERR.puts(x) if Process.exists?(x) }
-      Process.exit 1
     end
 
     def wait_pids
@@ -109,11 +122,11 @@ module DA_Deploy
     end # === def wait_pids
 
     def pids_up
-      pids.select { |x| Process.exists?(x) }
+      pids.select { |x| `ps -p #{x} -o pid=`.strip == x.to_s }
     end
 
     def any_pids_up?
-      pids_up.empty?
+      !pids_up.empty?
     end # === def any_pids_up?
 
   end # === struct Runit
