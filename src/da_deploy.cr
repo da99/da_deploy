@@ -42,7 +42,8 @@ module DA_Deploy
     sv.link!
 
     new_service = Runit.new(name)
-    wait(10) { new_service.run?  }
+    sleep 5
+    wait(5) { new_service.run?  }
     puts Runit.status(new_service.service_link)
     if !new_service.run?
       Process.exit 1
