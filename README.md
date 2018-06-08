@@ -1,6 +1,7 @@
 # da\_deploy
 
 ```
+install gc libevent
 /deploy/apps
   /my\_app
     date-sha1

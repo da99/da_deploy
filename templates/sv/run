@@ -15,4 +15,4 @@ test -d "$release" || { echo "!!! latest release not found in $dir" >&2; exit 1;
 cd "$release"
 bin="bin/{{NAME}}"
 echo "=== Starting @ $(date): $bin service run"
-exec chpst -u stager -U stager "$bin" service run
+exec chpst -u deployer -U deployer "$bin" service run

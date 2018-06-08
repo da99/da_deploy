@@ -28,9 +28,11 @@ module DA_Deploy
       is_running = status.split(':').first == "run"
 
       if is_running && status["(pid "]?
-        status.scan(/\(pid (\d+)\)/).map(&.[1].to_i32).each { |pid|
+        match = status.match(/\(pid (\d+)\)/)
+        if match
+          pid = match[1].to_i32
           @pids.concat `pstree -A -p #{pid}`.scan(/\((\d+)\)/).map(&.[1].to_i32)
-        }
+        end
       end
 
     end # === def initialize(name : String)

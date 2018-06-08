@@ -30,6 +30,11 @@ when full_cmd == "init"
   # === {{CMD}} init
   DA_Deploy.init
 
+when full_cmd == "init www"
+  # === {{CMD}} init www
+  DA_Deploy.init_www
+
+
 when ARGV[0]? == "deploy" && ARGV[1]?
   # === {{CMD}} deploy service_name
   DA_Deploy.deploy(ARGV[1])

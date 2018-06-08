@@ -113,16 +113,16 @@ module DA_Deploy
       File.dirname(File.dirname(bin_path))
     )
     Dir.cd(app_dir)
-    Dir.cd("config/stager/")
-    DA.system!("rsync -v -e ssh --relative --recursive .config/fish #{server_name}:/home/stager/")
+    Dir.cd("config/deployer/")
+    DA.system!("rsync -v -e ssh --relative --recursive .config/fish #{server_name}:/home/deployer/")
   end # === def upload_shell_config
 
   # Push the bin/da_deploy binary to /tmp on the remote server
   def upload_binary_to_remote(server_name : String)
     dir = File.dirname(File.dirname(Process.executable_path.not_nil!))
     Dir.cd(dir)
-    DA.system!("rsync", "-v -e ssh --relative --recursive bin #{server_name}:/home/stager/".split)
-    # DA.orange! "=== {{Run command on remote}}: BOLD{{/home/stager/da_deploy init}}"
+    DA.system!("rsync", "-v -e ssh --relative --recursive bin #{server_name}:/home/deployer/".split)
+    # DA.orange! "=== {{Run command on remote}}: BOLD{{/home/deployer/da_deploy init}}"
     # DA.system!("ssh #{server_name}")
   end # === def init_server
 
@@ -132,6 +132,7 @@ module DA_Deploy
     path = Dir.current
     FileUtils.mkdir_p "tmp/#{name}"
     Dir.cd("tmp/#{name}") {
+      FileUtils.rm_rf(release_id)
       DA.system!("git clone --depth 1 file://#{path} #{release_id}")
     }
     remote_dir = "/deploy/apps/#{name}/#{release_id}"
@@ -140,21 +141,19 @@ module DA_Deploy
       DA.exit_with_error!("!!! Already exists on server: #{remote_dir}")
     end
     Dir.cd("tmp") {
-      DA.system!("rsync -v -e ssh --relative --recursive #{name}/#{release_id} #{server_name}:/deploy/apps/")
+      DA.system!("rsync -v --ignore-existing -e ssh --relative --recursive #{name}/#{release_id} #{server_name}:/deploy/apps/")
     }
   end # === def upload_commit_to_remote
 
   # Run this on the remote server you want to setup.
   def init
+    if ENV["IS_DEVELOPMENT"]?
+      STDERR.puts "!!! Not a production machine."
+      Process.exit 1
+    end
+
     app_name = File.basename(Process.executable_path || self.to_s.downcase)
     required_services = "dhcpcd sshd ufw nanoklogd socklog-unix".split
-
-    if ENV["IS_DEVELOPMENT"]
-      FileUtils.mkdir_p SERVICE_DIR
-      required_services.each { |x|
-        FileUtils.mkdir_p "#{SERVICE_DIR}/#{x}"
-      }
-    end
 
     Dir.cd("/") {
       if Dir.exists?(DEPLOY_DIR) 
@@ -165,41 +164,36 @@ module DA_Deploy
       end
     }
 
+    DA::VoidLinux.install("git", "git")
+    DA::VoidLinux.install("rsync", "rsync")
+    DA::VoidLinux.install("nvim", "neovim")
+    DA::VoidLinux.install("fish", "fish-shell")
+    DA::VoidLinux.install("htop", "htop")
+    DA::VoidLinux.install("socklog", "socklog-void")
+    DA::VoidLinux.install("ufw", "ufw")
+    DA::VoidLinux.install("wget", "wget")
+    DA::VoidLinux.install("curl", "curl")
+
     DA.system! "test -e #{SERVICE_DIR}/dhcpcd"
     DA.system! "test -e #{SERVICE_DIR}/sshd"
     DA.system! "test -e #{SERVICE_DIR}/ufw"
     DA.system! "test -e #{SERVICE_DIR}/nanoklogd"
     DA.system! "test -e #{SERVICE_DIR}/socklog-unix"
 
-    DA.system! "mkdir -p #{DEPLOY_DIR}/apps/#{app_name}/bin"
-    DA.system! "mv -f #{Process.executable_path} #{DEPLOY_DIR}/apps/#{app_name}/bin/"
-
-    Dir.cd("#{DEPLOY_DIR}/apps/#{app_name}") {
-      dir = "sv/deploy_watch"
-      if Dir.exists?(dir)
-        DA.system! "sudo chown #{ENV["USER"]} #{dir}/run"
-        DA.system! "sudo chown #{ENV["USER"]} #{dir}/log/run"
-      else
-        DA.system! "mkdir -p #{dir}/log"
-      end
-
-      File.write("#{dir}/run", {{system("cat templates/sv/run").stringify}})
-      File.write("#{dir}/log/run", {{system("cat templates/sv/log").stringify}})
-
-      DA.system! "chmod +x #{dir}/run"
-      DA.system! "chmod +x #{dir}/log/run"
-      DA.system! "sudo chown --recursive root:root #{dir}"
-
-      service = "#{SERVICE_DIR}/#{app_name}_watch"
-      if File.exists?(service)
-        DA.system! "sudo sv restart #{service}"
-      else
-        DA.system! "sudo ln -s #{DEPLOY_DIR}/apps/#{dir} #{service}"
-      end
-    }
-
     DA.green! "=== {{Done}}: BOLD{{init deploy}}"
   end # === def init_deploy
+
+  def init_www
+    "www-deployer www-data".split.each { |user|
+      id = `id -u #{user}`.strip
+      if id.empty?
+        DA.system!("sudo useradd --system #{user}")
+      else
+        DA.orange! "=== User exists: #{user}"
+      end
+    }
+  end
+
 end # === module DA_Deploy
 
 require "./da_deploy/Runit"
