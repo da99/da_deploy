@@ -42,6 +42,10 @@ module DA_Deploy
       File.join(dir, "sv")
     end # === def sv_dir
 
+    def latest?
+      !!latest_release
+    end
+
     def latest_release
       releases.last?
     end

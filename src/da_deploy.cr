@@ -4,6 +4,9 @@ require "da"
 require "inspect_bang"
 require "file_utils"
 
+require "./da_deploy/Runit"
+require "./da_deploy/Public_Dir"
+
 module DA_Deploy
 
   DEPLOY_DIR = ENV["IS_DEVELOPMENT"]? ? "/tmp/deploy" : "/deploy"
@@ -18,36 +21,41 @@ module DA_Deploy
   end
 
   def deploy(name : String)
+    public = Public_Dir.new(name)
+    if public.latest?
+      public.link!
+    end
+
     sv = Runit.new(name)
 
     Dir.cd(sv.app_dir)
 
-    if !sv.latest_release
-      DA.exit_with_error!("No service found for: #{sv.name}")
-    end
+    if !sv.latest?
+      DA.orange!("=== No service found for: {{#{sv.name}}}")
+    else
+      if sv.latest_linked?
+        DA.exit_with_error! "=== Already installed: #{sv.service_link} -> #{`realpath #{sv.service_link}`}"
+      else
+        if sv.linked?
+          sv.down! if sv.run?
+          sv.wait_pids
+          if sv.any_pids_up?
+            DA.exit_with_error!("!!! Pids still up for #{name}: #{sv.pids_up}")
+          end
+          DA.system!("sudo rm -f #{sv.service_link}")
+        end
 
-    if sv.latest_linked?
-      DA.exit_with_error! "=== Already installed: #{sv.service_link} -> #{`realpath #{sv.service_link}`}"
-    end
+        sv.link!
 
-    if sv.linked?
-      sv.down! if sv.run?
-      sv.wait_pids
-      if sv.any_pids_up?
-        DA.exit_with_error!("!!! Pids still up for #{name}: #{sv.pids_up}")
-      end
-      DA.system!("sudo rm -f #{sv.service_link}")
-    end
-
-    sv.link!
-
-    new_service = Runit.new(name)
-    sleep 5
-    wait(5) { new_service.run?  }
-    puts Runit.status(new_service.service_link)
-    if !new_service.run?
-      Process.exit 1
-    end
+        new_service = Runit.new(name)
+        sleep 5
+        wait(5) { new_service.run?  }
+        puts Runit.status(new_service.service_link)
+        if !new_service.run?
+          Process.exit 1
+        end
+      end # === sv
+    end # === if !sv.latest?
   end # === def deploy
 
   def wait(max : Int32)
@@ -194,6 +202,7 @@ module DA_Deploy
         DA.orange! "=== User exists: #{user}"
       end
     }
+    DA::VoidLinux.install("hiawatha", "hiawatha")
   end
 
   def init_ssh
@@ -230,5 +239,3 @@ module DA_Deploy
   end # === def init_ssh
 
 end # === module DA_Deploy
-
-require "./da_deploy/Runit"
