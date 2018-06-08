@@ -180,6 +180,7 @@ module DA_Deploy
     DA.system! "test -e #{SERVICE_DIR}/nanoklogd"
     DA.system! "test -e #{SERVICE_DIR}/socklog-unix"
 
+    init_ssh
     DA.green! "=== {{Done}}: BOLD{{init deploy}}"
   end # === def init_deploy
 
@@ -193,6 +194,39 @@ module DA_Deploy
       end
     }
   end
+
+  def init_ssh
+    file = "/etc/ssh/sshd_config"
+    File.read(file).split('\n').map { |l| l.split }.each { |pieces|
+      count  = pieces.size
+      first  = pieces[0]?
+      second = pieces[1]?
+      next if first && first.index('#') == 0
+      next if !first
+      case first.upcase
+      when "PermitRootLogin".upcase, "PasswordAuthentication".upcase, "UsePAM".upcase
+        next if second == "no"
+      when "ChallengeResponseAuthentication".upcase
+        next if second == "no"
+      else
+        next
+      end
+
+      DA.exit_with_error!("!!! Invalid value for sshd_config: #{pieces.join ' '}")
+    }
+
+    Dir.cd(ENV["HOME"]) {
+      DA.system!("chmod 700 -R .ssh")
+      Dir.cd(".ssh") {
+        contents = (File.exists?("authorized_keys") ? File.read("authorized_keys") : "").strip
+        if contents.empty?
+          DA.exit_with_error!("!!! authorized_keys empty.")
+        else
+          DA.system!("sudo sv restart sshd")
+        end
+      }
+    }
+  end # === def init_ssh
 
 end # === module DA_Deploy
 

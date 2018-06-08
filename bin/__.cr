@@ -30,6 +30,10 @@ when full_cmd == "init"
   # === {{CMD}} init
   DA_Deploy.init
 
+when full_cmd == "init ssh"
+  # === {{CMD}} init ssh
+  DA_Deploy.init_ssh
+
 when full_cmd == "init www"
   # === {{CMD}} init www
   DA_Deploy.init_www
