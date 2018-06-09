@@ -194,7 +194,7 @@ module DA_Deploy
   end # === def init_deploy
 
   def init_www
-    "www-deployer www-data".split.each { |user|
+    "www-redirector www-deployer www-data".split.each { |user|
       id = `id -u #{user}`.strip
       if id.empty?
         DA.system!("sudo useradd --system #{user}")
