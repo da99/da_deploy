@@ -189,6 +189,11 @@ module DA_Deploy
     DA.system! "test -e #{SERVICE_DIR}/nanoklogd"
     DA.system! "test -e #{SERVICE_DIR}/socklog-unix"
 
+    "3 4 5 6".split.each { |x|
+      service = "/var/service/agetty-tty#{x}"
+      DA.system! "sudo rm #{service}" if File.exists?(service)
+    }
+
     init_ssh
     DA.green! "=== {{Done}}: BOLD{{init deploy}}"
   end # === def init_deploy
