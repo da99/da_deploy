@@ -9,7 +9,7 @@ require "./da_deploy/Public_Dir"
 
 module DA_Deploy
 
-  DEPLOY_DIR = ENV["IS_DEVELOPMENT"]? ? "/tmp/deploy" : "/deploy"
+  DEPLOY_DIR  = ENV["IS_DEVELOPMENT"]? ? "/tmp/deploy" : "/deploy"
   SERVICE_DIR = ENV["IS_DEVELOPMENT"]? ? "/tmp/var/service" : "/var/service"
 
   extend self
@@ -115,6 +115,11 @@ module DA_Deploy
       end
     }
   end # === def deploy_watch
+
+  def deploy_check
+    puts "http://domain.com/file -> https://domain.com/file"
+    puts "http://domain.com/     -> https://domain.com/"
+  end # === def deploy_check
 
   def upload_shell_config_to(server_name : String)
     bin_path = Process.executable_path.not_nil!
