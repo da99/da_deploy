@@ -71,10 +71,10 @@ when "service up" == "#{ARGV[0]?} #{ARGV[1]?}" && ARGV[2]?
 when "inspect" == ARGV[0]? && ARGV[1]? && !ARGV[2]?
   # === {{CMD}} inspect app_name
   app = DA_Deploy::App.new(ARGV[1])
-  puts "name:     #{app.name}"
-  puts "dir:      #{app.dir}"
-  puts "latest:   #{app.latest}"
-  puts "releases: #{app.releases.size}"
+  puts "name:       #{app.name}"
+  puts "dir:        #{app.dir}"
+  puts "latest:     #{app.latest}"
+  puts "releases:   #{app.releases.size}"
   puts "public dir: #{app.public_dir?}"
   puts "sv dir:     #{app.public_dir?}"
 
