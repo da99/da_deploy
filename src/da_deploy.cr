@@ -4,13 +4,14 @@ require "da"
 require "inspect_bang"
 require "file_utils"
 
+require "./da_deploy/App"
 require "./da_deploy/Runit"
 require "./da_deploy/Public_Dir"
 
 module DA_Deploy
 
-  DEPLOY_DIR  = ENV["IS_DEVELOPMENT"]? ? "/tmp/deploy" : "/deploy"
-  SERVICE_DIR = ENV["IS_DEVELOPMENT"]? ? "/tmp/var/service" : "/var/service"
+  DEPLOY_DIR  = "/deploy"
+  SERVICE_DIR = "/var/service"
 
   extend self
 
@@ -79,47 +80,46 @@ module DA_Deploy
     dir_name =~ /^#{name}\.\d{10}-[\da-zA-Z]{7}$/
   end # === def service_name?
 
-  def self.is_release?(dir)
+  def is_release?(dir)
     File.basename(dir)[/^\d{10}-[\da-zA-Z]{7}$/]?
   end
 
-  def self.releases(name : String)
-    Dir.glob("#{DEPLOY_DIR}/apps/#{name}/*/").sort.map { |dir|
+  def releases(dir : String)
+    Dir.glob("#{dir}/*/").sort.map { |dir|
       next unless is_release?(dir)
       dir
     }.compact
   end
 
-  def self.latest_release(name : String)
-    d = releases(name).last?
+  def latest(dir : String)
+    releases.last?
+  end # === def latest(dir : String)
+
+  def latest!(dir : String)
+    d = releases(dir).last?
     if !d || !File.directory?(d)
-      DA.exit_with_error!("!!! No latest release found for #{name}")
+      DA.exit_with_error!("!!! No latest release found for #{dir}")
     end
     d
   end # === def self.latest_release
 
-  def service_run
-    counter = 0
-    interval = 5
-    STDERR.puts "=== Started watching at: #{Time.now.to_s}"
-    loop {
-      sleep interval
-      counter += interval
-
-      if (counter % 5) == 0
-        Dir.glob("#{DEPLOY_DIR}/*/").each { |dir|
-          next unless Dir.exists?(File.join dir, "releases")
-          app_name = File.basename(dir)
-          # init_sv(app_name) if !Dir.exists?("#{DEPLOY_DIR}/sv/#{app_name}")
-        }
-      end
-    }
-  end # === def deploy_watch
-
   def deploy_check
     puts "http://domain.com/file -> https://domain.com/file"
     puts "http://domain.com/     -> https://domain.com/"
+    puts "check directing listing is off for all sites."
   end # === def deploy_check
+
+  def remove(app_name : String)
+    sv = Runit.new(app_name)
+    sv.down! if sv.run?
+    sv.wait_pids
+    if sv.any_pids_up?
+      DA.exit_with_error!("!!! Pids still up for #{app_name}: #{sv.pids_up.join ", "}")
+    end
+    if sv.linked?
+      DA.system!("sudo rm -f #{sv.service_link}")
+    end
+  end # === def remove
 
   def upload_shell_config_to(server_name : String)
     bin_path = Process.executable_path.not_nil!
@@ -155,7 +155,7 @@ module DA_Deploy
       DA.exit_with_error!("!!! Already exists on server: #{remote_dir}")
     end
     Dir.cd("tmp") {
-      DA.system!("rsync -v --ignore-existing -e ssh --relative --recursive #{name}/#{release_id} #{server_name}:/deploy/apps/")
+      DA.system!("rsync -v --ignore-existing --exclude .git -e ssh --relative --recursive #{name}/#{release_id} #{server_name}:/deploy/apps/")
     }
   end # === def upload_commit_to_remote
 

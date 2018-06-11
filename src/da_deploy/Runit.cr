@@ -38,15 +38,15 @@ module DA_Deploy
     end # === def initialize(name : String)
 
     def sv_dir
-      dir = latest_release.not_nil!
+      dir = latest.not_nil!
       File.join(dir, "sv")
     end # === def sv_dir
 
     def latest?
-      !!latest_release
+      !!latest
     end
 
-    def latest_release
+    def latest
       releases.last?
     end
 
@@ -61,7 +61,7 @@ module DA_Deploy
     end
 
     def latest_linked?
-      dir = latest_release
+      dir = latest
       if dir
         `realpath #{sv_dir}` == `realpath #{service_link}`
       else

@@ -18,13 +18,13 @@ when full_cmd == "generate release id"
 
 when full_cmd == "releases"
   # === {{CMD}} releases # Prints list of release in current working directory
-  DA_Deploy.releases(File.basename(Dir.current)).each { |dir|
+  DA_Deploy.releases(Dir.current).each { |dir|
     puts dir
   }
 
-when full_cmd == "latest release"
+when full_cmd == "latest"
   # === {{CMD}} latest release
-  puts DA_Deploy.latest_release(File.basename(Dir.current))
+  puts DA_Deploy.latest!(Dir.current)
 
 when full_cmd == "init"
   # === {{CMD}} init
@@ -38,6 +38,9 @@ when full_cmd == "init www"
   # === {{CMD}} init www
   DA_Deploy.init_www
 
+when ARGV[0]? == "remove" && ARGV[1]?
+  # === {{CMD}} remove service_name
+  DA_Deploy.remove(ARGV[1])
 
 when ARGV[0]? == "deploy" && ARGV[1]?
   # === {{CMD}} deploy service_name
@@ -47,17 +50,13 @@ when full_cmd["upload shell config to "]?
   # === {{CMD}} upload shell config
   DA_Deploy.upload_shell_config_to(ARGV.last)
 
-when full_cmd == "service run"
-  # === {{CMD}} service run
-  DA_Deploy.service_run
-
 when "service inspect" == "#{ARGV[0]?} #{ARGV[1]?}" && ARGV[2]?
   # === {{CMD}} service inspect dir_service
   service = DA_Deploy::Runit.new(ARGV[2])
-  {% for x in "name service_link latest_linked? app_dir pids latest_release".split %}
+  {% for x in "name service_link latest_linked? app_dir pids latest".split %}
     puts "{{x.id}}:  #{service.{{x.id}}.inspect}"
   {% end %}
-  if service.latest_release
+  if service.latest?
     puts "sv_dir:  #{service.sv_dir}"
   end
 
@@ -68,6 +67,16 @@ when "service down" == "#{ARGV[0]?} #{ARGV[1]?}" && ARGV[2]?
 when "service up" == "#{ARGV[0]?} #{ARGV[1]?}" && ARGV[2]?
   # === {{CMD}} service up dir_service
   DA_Deploy::Runit.new(ARGV[2]).up!
+
+when "inspect" == ARGV[0]? && ARGV[1]? && !ARGV[2]?
+  # === {{CMD}} inspect app_name
+  app = DA_Deploy::App.new(ARGV[1])
+  puts "name:     #{app.name}"
+  puts "dir:      #{app.dir}"
+  puts "latest:   #{app.latest}"
+  puts "releases: #{app.releases.size}"
+  puts "public dir: #{app.public_dir?}"
+  puts "sv dir:     #{app.public_dir?}"
 
 when "#{ARGV[0]?} #{ARGV[1]?} #{ARGV[2]?}" == "upload binary to"
   # === {{CMD}} upload binary to remote_name
