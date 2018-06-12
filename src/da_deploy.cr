@@ -34,6 +34,9 @@ module DA_Deploy
     if !sv.latest?
       DA.orange!("=== No service found for: {{#{sv.name}}}")
     else
+
+      useradd("www-#{name}")
+
       if sv.latest_linked?
         DA.exit_with_error! "=== Already installed: #{sv.service_link} -> #{`realpath #{sv.service_link}`}"
       else
@@ -205,14 +208,18 @@ module DA_Deploy
 
   def init_www
     "www-redirector www-deployer www-data".split.each { |user|
-      id = `id -u #{user}`.strip
-      if id.empty?
-        DA.system!("sudo useradd --system #{user}")
-      else
-        DA.orange! "=== User exists: #{user}"
-      end
+      useradd(user)
     }
     DA::VoidLinux.install("hiawatha", "hiawatha")
+  end
+
+  def useradd(user : String)
+    id = `id -u #{user}`.strip
+    if id.empty?
+      DA.system!("sudo useradd --system #{user}")
+    else
+      DA.orange! "=== User exists: #{user}"
+    end
   end
 
   def init_ssh
