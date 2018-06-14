@@ -10,8 +10,8 @@ module DA_Deploy
     def initialize(@name)
       @app        = App.new(@name)
       @linked_dir = @app.dir("pg")
-      @latest     = @app.latest("pg")
-      @is_exist   = File.directory?(@latest)
+      @latest     = __latest = @app.latest("pg")
+      @is_exist   = !!(__latest && File.directory?(__latest))
     end # === def initialize
 
     def user

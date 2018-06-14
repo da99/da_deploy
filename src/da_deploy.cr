@@ -33,7 +33,11 @@ module DA_Deploy
 
   def deploy_pg(app_name : String)
     pg = PG.new(app_name)
-    return false unless pg.exists?
+    if !pg.exists?
+      DA.orange!("=== Skipping pg install: no pg/ directory found.")
+      return false
+    end
+
     if !DA.success?("which postgres")
       DA.system!("sudo xbps-install -S -y postgresql postgresql-client postgresql-contrib")
     end
