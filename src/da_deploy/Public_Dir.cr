@@ -5,10 +5,12 @@ module DA_Deploy
     getter name : String
     getter app_dir : String
     getter public_link : String
+    getter app : App
 
     def initialize(@name)
-      @app_dir = File.join(DEPLOY_DIR, "apps", name)
-      @public_link = File.join(app_dir, "Public")
+      @app         = App.new(@name)
+      @app_dir     = @app.dir
+      @public_link = File.join(@app_dir, "Public")
     end # === def initialize
 
     def latest?

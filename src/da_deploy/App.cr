@@ -16,9 +16,22 @@ module DA_Deploy
       !!@latest
     end # === def latest?
 
+    def latest(dir : String)
+      l = latest
+      if l
+        File.join(l, dir)
+      else
+        nil
+      end
+    end # === def latest
+
     def releases
       DA_Deploy.releases(@dir)
     end
+
+    def dir(*args)
+      File.join(@dir, *args)
+    end # === def dir
 
     {% for x in "Public sv".split %}
       def {{x.id.downcase}}_dir

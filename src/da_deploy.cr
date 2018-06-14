@@ -7,6 +7,7 @@ require "file_utils"
 require "./da_deploy/App"
 require "./da_deploy/Runit"
 require "./da_deploy/Public_Dir"
+require "./da_deploy/PG"
 
 module DA_Deploy
 
@@ -18,6 +19,7 @@ module DA_Deploy
   def deploy(name : String)
     deploy_public(name)
     deploy_sv(name)
+    deploy_pg(name)
   end # === def deploy
 
   def deploy_public(app_name : String)
@@ -28,6 +30,15 @@ module DA_Deploy
     end
     public.link!
   end # === def deploy_public
+
+  def deploy_pg(app_name : String)
+    pg = PG.new(app_name)
+    return false unless pg.exists?
+    if !DA.success?("which postgres")
+      DA.system!("sudo xbps-install -S -y postgresql postgresql-client postgresql-contrib")
+    end
+    useradd(pg.user)
+  end # === def deploy_pg
 
   def deploy_sv(app_name : String)
     sv = Runit.new(app_name)
