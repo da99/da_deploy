@@ -15,52 +15,54 @@ module DA_Deploy
 
   extend self
 
-  def deploy
-    Dir.glob("#{DEPLOY_DIR}/apps/*/").each { |dir|
-      deploy(dir)
-    }
-  end
-
   def deploy(name : String)
-    public = Public_Dir.new(name)
-    if public.latest?
-      public.link!
+    deploy_public(name)
+    deploy_sv(name)
+  end # === def deploy
+
+  def deploy_public(app_name : String)
+    public = Public_Dir.new(app_name)
+    if !public.latest?
+      DA.orange!("=== No Public dir for: {{#{app_name}}}")
+      return false
     end
+    public.link!
+  end # === def deploy_public
 
-    sv = Runit.new(name)
-
+  def deploy_sv(app_name : String)
+    sv = Runit.new(app_name)
     Dir.cd(sv.app_dir)
 
     if !sv.latest?
       DA.orange!("=== No service found for: {{#{sv.name}}}")
+      return false
+    end
+
+    useradd("www-#{sv.name}")
+
+    if sv.latest_linked?
+      DA.exit_with_error! "=== Already installed: #{sv.service_link} -> #{`realpath #{sv.service_link}`}"
     else
-
-      useradd("www-#{name}")
-
-      if sv.latest_linked?
-        DA.exit_with_error! "=== Already installed: #{sv.service_link} -> #{`realpath #{sv.service_link}`}"
-      else
-        if sv.linked?
-          sv.down! if sv.run?
-          sv.wait_pids
-          if sv.any_pids_up?
-            DA.exit_with_error!("!!! Pids still up for #{name}: #{sv.pids_up}")
-          end
-          DA.system!("sudo rm -f #{sv.service_link}")
+      if sv.linked?
+        sv.down! if sv.run?
+        sv.wait_pids
+        if sv.any_pids_up?
+          DA.exit_with_error!("!!! Pids still up for #{sv.name}: #{sv.pids_up}")
         end
+        DA.system!("sudo rm -f #{sv.service_link}")
+      end
 
-        sv.link!
+      sv.link!
 
-        new_service = Runit.new(name)
-        sleep 5
-        wait(5) { new_service.run?  }
-        puts Runit.status(new_service.service_link)
-        if !new_service.run?
-          Process.exit 1
-        end
-      end # === sv
-    end # === if !sv.latest?
-  end # === def deploy
+      new_service = Runit.new(sv.name)
+      sleep 5
+      wait(5) { new_service.run?  }
+      puts Runit.status(new_service.service_link)
+      if !new_service.run?
+        Process.exit 1
+      end
+    end # === sv
+  end # === def deploy_public
 
   def wait(max : Int32)
     counter = 0
@@ -203,6 +205,10 @@ module DA_Deploy
     }
 
     init_ssh
+
+    DA.system! "mkdir -p /tmp/da_cache"
+    DA.system! "sudo chmod o+rxw /tmp/da_cache"
+
     DA.green! "=== {{Done}}: BOLD{{init deploy}}"
   end # === def init_deploy
 

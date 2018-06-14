@@ -42,9 +42,13 @@ when ARGV[0]? == "remove" && ARGV[1]?
   # === {{CMD}} remove service_name
   DA_Deploy.remove(ARGV[1])
 
-when ARGV[0]? == "deploy" && ARGV[1]?
+when ARGV[0]? == "deploy" && ARGV[1]? && !ARGV[2]?
   # === {{CMD}} deploy service_name
   DA_Deploy.deploy(ARGV[1])
+
+when "#{ARGV[0]?} #{ARGV[1]?}" == "deploy Public" && ARGV[2]?
+  # === {{CMD}} deploy Public service_name
+  DA_Deploy.deploy_public(ARGV[2])
 
 when full_cmd["upload shell config to "]?
   # === {{CMD}} upload shell config
