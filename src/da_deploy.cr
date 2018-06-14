@@ -56,27 +56,28 @@ module DA_Deploy
     useradd("www-#{sv.name}")
 
     if sv.latest_linked?
-      DA.exit_with_error! "=== Already installed: #{sv.service_link} -> #{`realpath #{sv.service_link}`}"
-    else
-      if sv.linked?
-        sv.down! if sv.run?
-        sv.wait_pids
-        if sv.any_pids_up?
-          DA.exit_with_error!("!!! Pids still up for #{sv.name}: #{sv.pids_up}")
-        end
-        DA.system!("sudo rm -f #{sv.service_link}")
-      end
+      DA.orange! "=== Already installed: #{sv.service_link} -> #{`realpath #{sv.service_link}`}"
+      return false
+    end
 
-      sv.link!
-
-      new_service = Runit.new(sv.name)
-      sleep 5
-      wait(5) { new_service.run?  }
-      puts Runit.status(new_service.service_link)
-      if !new_service.run?
-        Process.exit 1
+    if sv.linked?
+      sv.down! if sv.run?
+      sv.wait_pids
+      if sv.any_pids_up?
+        DA.exit_with_error!("!!! Pids still up for #{sv.name}: #{sv.pids_up}")
       end
-    end # === sv
+      DA.system!("sudo rm -f #{sv.service_link}")
+    end
+
+    sv.link!
+
+    new_service = Runit.new(sv.name)
+    sleep 5
+    wait(5) { new_service.run?  }
+    puts Runit.status(new_service.service_link)
+    if !new_service.run?
+      Process.exit 1
+    end
   end # === def deploy_public
 
   def wait(max : Int32)
