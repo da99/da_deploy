@@ -38,9 +38,9 @@ module DA_Deploy
       return false
     end
 
-    if !DA.success?("which postgres")
-      DA.system!("sudo xbps-install -S -y postgresql postgresql-client postgresql-contrib")
-    end
+    # if !DA.success?("which postgres")
+    #   DA.system!("sudo xbps-install -S -y postgresql postgresql-client postgresql-contrib")
+    # end
     useradd(pg.user)
   end # === def deploy_pg
 
