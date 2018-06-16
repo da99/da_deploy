@@ -1,6 +1,18 @@
 
 module DA_Deploy
 
+  def remove(app_name : String)
+    sv = Runit.new(app_name)
+    sv.down! if sv.run?
+    sv.wait_pids
+    if sv.any_pids_up?
+      DA.exit_with_error!("!!! Pids still up for #{app_name}: #{sv.pids_up.join ", "}")
+    end
+    if sv.linked?
+      DA.system!("sudo rm -f #{sv.service_link}")
+    end
+  end # === def remove
+
   struct App
 
     getter name   : String

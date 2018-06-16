@@ -3,9 +3,7 @@ name: da_deploy
 version: 0.4.1
 dependencies:
   da:
-    github: da99/da
-  inspect_bang:
-    github: da99/inspect_bang.cr
+    git: file:///apps/da
 development_dependencies:
   da_spec:
-    github: da99/da_spec.cr
+    git: file:///apps/da_spec

@@ -18,6 +18,10 @@ module DA_Deploy
       "pg-#{name}"
     end
 
+    def group_socket
+      "socket-#{name}"
+    end
+
     def exists?
       @is_exist
     end
